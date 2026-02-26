@@ -2,6 +2,10 @@
 
 A real-time Binance spot momentum scanner with a live web dashboard. Streams trade flow, order-book ticks, and 5-minute klines for the top 200 USDT pairs simultaneously and surfaces two types of signal:
 
+[![Deno](https://img.shields.io/badge/deno-%5E1.40-lightgrey?logo=deno)](https://deno.land/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)]()
+
 - **Confirmed alerts** — candle-based: abnormal 5m volume (≥ 3× the 1h average) combined with a price move ≥ 1.5%.
 - **Early signals** — micro-momentum: trade-per-second z-score, cumulative volume delta (CVD) rate, buy ratio, and spread compression scored continuously every 5 seconds.
 
