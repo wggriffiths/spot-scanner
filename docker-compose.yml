@@ -1,0 +1,18 @@
+version: "3.8"
+services:
+  spot-scanner:
+    build: .
+    container_name: spot-scanner
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      - scanner_logs:/app/logs
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+
+volumes:
+  scanner_logs:

@@ -1,4 +1,5 @@
 import { parseArgs } from "jsr:@std/cli/parse-args";
+import { isRunningAsService, runAsWindowsService, runServiceCommand } from "./service.ts";
 
 const BINANCE_BASE = "https://api.binance.com";
 const TOP_PAIRS_LIMIT = 200;
@@ -14,11 +15,17 @@ const ALERT_COOLDOWN_MS = 15 * 60_000;
 const REQUIRE_BREAKOUT_FILTER = false;
 const MAX_PERSISTED_ALERTS = 500;
 const EARLY_CANDIDATE_TTL_MS = 5 * 60_000;
+const HISTORY_FILE = "./alerts_history.json";
+const HISTORY_SAVE_DEBOUNCE_MS = 5_000;
+const PERF_LOG_FILE = "./performance_log.json";
+const MAX_PERF_ENTRIES = 1_000;
 
 const KLINE_INTERVAL = "5m";
 const KLINES_REQUIRED = 13;
 const STREAM_CHUNK_SIZE = 80;
 const STREAM_RECONNECT_DELAY_MS = 3_000;
+
+const SYMBOL_REGEX = /^[A-Z0-9]{1,15}USDT$/;
 
 const RECENT_WINDOW_SEC = 10;
 const BASELINE_WINDOW_SEC = 60;
@@ -32,6 +39,9 @@ const MAX_CONFIRM_LOOKBACK_PUMP_PERCENT = 8;
 const ENABLE_DEPTH_IMBALANCE = false;
 const DEPTH_LEVELS_TO_SUM = 5;
 
+const RUN_ID = crypto.randomUUID();
+const RUN_STARTED_AT = new Date().toISOString();
+
 // ---------------------------------------------------------------------------
 // CLI args
 // Check --help / --version directly against Deno.args before parseArgs —
@@ -40,10 +50,17 @@ const DEPTH_LEVELS_TO_SUM = 5;
 // ---------------------------------------------------------------------------
 if (Deno.args.includes("--help") || Deno.args.includes("-h")) {
   console.log(`
-Spot Momentum Scanner
+Spot Scanner v0.1.1
 
 Usage:
-  deno run --allow-net --allow-run --allow-read scanner.ts [options]
+  scanner [options]
+  scanner <command>
+
+Commands:
+  install        Install as a system service (requires admin/root)
+  uninstall      Remove the system service (requires admin/root)
+  start          Start the installed service (requires admin/root)
+  stop           Stop the running service (requires admin/root)
 
 Options:
   --port <number>      HTTP port (default: ${SERVER_PORT})
@@ -56,12 +73,19 @@ Options:
 }
 
 if (Deno.args.includes("--version") || Deno.args.includes("-v")) {
-  console.log("v0.1.0");
+  console.log("v0.1.1");
+  Deno.exit(0);
+}
+
+// Service sub-commands (install / uninstall / start / stop)
+const _serviceCommands = ["install", "uninstall", "start", "stop"];
+if (Deno.args[0] && _serviceCommands.includes(Deno.args[0])) {
+  await runServiceCommand(Deno.args[0]);
   Deno.exit(0);
 }
 
 const _args = parseArgs(Deno.args, {
-  boolean: ["dashboard-only"],
+  boolean: ["dashboard-only", "service"],
   string: ["port", "pairs-limit"],
   default: { port: String(SERVER_PORT), "pairs-limit": String(TOP_PAIRS_LIMIT) },
 });
@@ -79,6 +103,7 @@ if (!Number.isFinite(_pairsLimit) || _pairsLimit < 1) {
 }
 
 const _dashboardOnly = _args["dashboard-only"] as boolean;
+const _runAsService  = _args["service"] as boolean;
 
 type Ticker24h = {
   symbol: string;
@@ -101,6 +126,9 @@ type ExchangeInfo = {
 
 type Alert = {
   symbol: string;
+  alert_type: "candle" | "micro";
+  run_id: string;
+  entry_time: string;
   volume_5m: number;
   avg_volume_1h: number;
   volume_ratio: number;
@@ -111,6 +139,8 @@ type Alert = {
 
 type EarlyCandidate = {
   symbol: string;
+  run_id: string;
+  entry_time: string;
   momentum_score: number;
   tps_now: number;
   tps_baseline: number;
@@ -129,6 +159,40 @@ type Candle = {
   close: number;
   volume: number;
   closeTime: number;
+};
+
+type PendingPerformance = {
+  symbol: string;
+  alert_type: "candle" | "micro";
+  alert_timestamp: string;
+  run_id: string;
+  entry_time: string;
+  run_started_at: string;
+  entry_price: number;
+  started_at: number;
+  forward_1m: number | null;
+  forward_3m: number | null;
+  forward_5m: number | null;
+  forward_15m: number | null;
+  max_price: number;
+  min_price: number;
+};
+
+type PerformanceEntry = {
+  symbol: string;
+  alert_type: "candle" | "micro";
+  alert_timestamp: string;
+  run_id: string;
+  entry_time: string;
+  run_started_at: string;
+  entry_price: number;
+  forward_1m: number | null;
+  forward_3m: number | null;
+  forward_5m: number | null;
+  forward_15m: number | null;
+  max_up_15m: number | null;
+  max_down_15m: number | null;
+  is_false: boolean;
 };
 
 type TradeSecondStat = {
@@ -177,6 +241,21 @@ const earlyCandidateBySymbol = new Map<string, EarlyCandidate>();
 const streamReconnectCountByType = new Map<string, number>();
 const streamConnectedByType = new Map<string, number>();
 
+const latestPriceBySymbol = new Map<string, number>();
+const pendingPerformanceBySymbol = new Map<string, PendingPerformance>();
+let performanceLog: PerformanceEntry[] = [];
+let _savePerfTimer: number | undefined;
+let invalidSymbolCount = 0;
+
+const VALID_SYMBOLS = new Set<string>();
+
+type RunSummary = {
+  run_id: string;
+  run_started_at: string | null;
+  alerts: number;
+  performance: number;
+};
+
 const DASHBOARD_HTML_URL = new URL("./dashboard.html", import.meta.url);
 let dashboardTemplate: string | null = null;
 
@@ -207,6 +286,18 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function isValidSymbol(symbol: string): boolean {
+  if (!SYMBOL_REGEX.test(symbol)) return false;
+  return VALID_SYMBOLS.has(symbol);
+}
+
+function markInvalidSymbol(symbol: string): void {
+  invalidSymbolCount += 1;
+  if (invalidSymbolCount % 100 === 0) {
+    console.warn(`Ignored ${invalidSymbolCount} invalid symbols (latest: ${symbol})`);
+  }
+}
+
 function mean(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -230,6 +321,8 @@ async function getTopUsdtPairs(limit = TOP_PAIRS_LIMIT): Promise<ScannablePair[]
       .filter((s) => s.quoteAsset === "USDT" && s.status === "TRADING" && s.isSpotTradingAllowed)
       .map((s) => s.symbol),
   );
+  VALID_SYMBOLS.clear();
+  for (const sym of validSpotSymbols) VALID_SYMBOLS.add(sym);
 
   return tickers
     .filter((t) => validSpotSymbols.has(t.symbol))
@@ -240,10 +333,117 @@ async function getTopUsdtPairs(limit = TOP_PAIRS_LIMIT): Promise<ScannablePair[]
     .map((t) => ({ symbol: t.symbol, quoteVolume24h: t.quoteVolume24h }));
 }
 
+let _saveHistoryTimer: number | undefined;
+
+function scheduleHistorySave(): void {
+  clearTimeout(_saveHistoryTimer);
+  _saveHistoryTimer = setTimeout(async () => {
+    try {
+      await Deno.writeTextFile(HISTORY_FILE, JSON.stringify(latestAlerts));
+    } catch (err) {
+      console.warn("Failed to save alert history:", err instanceof Error ? err.message : String(err));
+    }
+  }, HISTORY_SAVE_DEBOUNCE_MS);
+}
+
+async function loadAlertHistory(): Promise<void> {
+  try {
+    const raw = await Deno.readTextFile(HISTORY_FILE);
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      latestAlerts = (parsed as Alert[]).slice(0, MAX_PERSISTED_ALERTS);
+      console.log(`Loaded ${latestAlerts.length} alerts from history.`);
+    }
+  } catch {
+    // No history file yet or unreadable — start fresh.
+  }
+}
+
+function schedulePerformanceSave(): void {
+  clearTimeout(_savePerfTimer);
+  _savePerfTimer = setTimeout(async () => {
+    try {
+      await Deno.writeTextFile(PERF_LOG_FILE, JSON.stringify(performanceLog));
+    } catch (err) {
+      console.warn("Failed to save performance log:", err instanceof Error ? err.message : String(err));
+    }
+  }, 5_000);
+}
+
+async function loadPerformanceLog(): Promise<void> {
+  try {
+    const raw = await Deno.readTextFile(PERF_LOG_FILE);
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      performanceLog = (parsed as PerformanceEntry[]).slice(0, MAX_PERF_ENTRIES);
+      console.log(`Loaded ${performanceLog.length} performance entries.`);
+    }
+  } catch { /* no file yet */ }
+}
+
+function initPerformanceTracking(alert: Alert): void {
+  const entryPrice = latestPriceBySymbol.get(alert.symbol);
+  if (!entryPrice || entryPrice <= 0) return;
+  pendingPerformanceBySymbol.set(alert.symbol, {
+    symbol: alert.symbol,
+    alert_type: alert.alert_type,
+    alert_timestamp: alert.timestamp,
+    run_id: alert.run_id,
+    entry_time: alert.entry_time,
+    run_started_at: RUN_STARTED_AT,
+    entry_price: entryPrice,
+    started_at: Date.now(),
+    forward_1m: null,
+    forward_3m: null,
+    forward_5m: null,
+    forward_15m: null,
+    max_price: entryPrice,
+    min_price: entryPrice,
+  });
+}
+
+function updatePendingPerformance(symbol: string, price: number, now: number): void {
+  const p = pendingPerformanceBySymbol.get(symbol);
+  if (!p) return;
+
+  if (price > p.max_price) p.max_price = price;
+  if (price < p.min_price) p.min_price = price;
+
+  const elapsed = now - p.started_at;
+  const fwd = (price - p.entry_price) / p.entry_price * 100;
+
+  if (p.forward_1m  === null && elapsed >=     60_000) p.forward_1m  = fwd;
+  if (p.forward_3m  === null && elapsed >=  3 * 60_000) p.forward_3m  = fwd;
+  if (p.forward_5m  === null && elapsed >=  5 * 60_000) p.forward_5m  = fwd;
+  if (p.forward_15m === null && elapsed >= 15 * 60_000) {
+    p.forward_15m = fwd;
+    performanceLog = [{
+      symbol: p.symbol,
+      alert_type: p.alert_type,
+      alert_timestamp: p.alert_timestamp,
+      run_id: p.run_id,
+      entry_time: p.entry_time,
+      run_started_at: p.run_started_at,
+      entry_price: p.entry_price,
+      forward_1m:   p.forward_1m,
+      forward_3m:   p.forward_3m,
+      forward_5m:   p.forward_5m,
+      forward_15m:  p.forward_15m,
+      max_up_15m:   (p.max_price - p.entry_price) / p.entry_price * 100,
+      max_down_15m: (p.min_price - p.entry_price) / p.entry_price * 100,
+      is_false:     ((p.max_price - p.entry_price) / p.entry_price * 100) < 0.3,
+    }, ...performanceLog].slice(0, MAX_PERF_ENTRIES);
+    pendingPerformanceBySymbol.delete(symbol);
+    schedulePerformanceSave();
+  }
+}
+
 function pushAlert(alert: Alert): void {
   latestAlerts = [alert, ...latestAlerts]
     .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
     .slice(0, MAX_PERSISTED_ALERTS);
+  scheduleHistorySave();
+  initPerformanceTracking(alert);
 }
 
 function pushEarlyCandidate(candidate: EarlyCandidate): void {
@@ -312,6 +512,9 @@ function scanSymbolFromHistory(symbol: string): Alert | null {
 
   return {
     symbol,
+    alert_type: "candle",
+    run_id: RUN_ID,
+    entry_time: new Date(latest.closeTime).toISOString(),
     volume_5m: volume5m,
     avg_volume_1h: avgVolume1h,
     volume_ratio: volumeRatio,
@@ -424,6 +627,7 @@ function handleKlineMessage(rawData: string): void {
   const symbol = data.s;
   const kline = data.k;
   if (typeof symbol !== "string" || !kline || typeof kline !== "object") return;
+  if (!isValidSymbol(symbol)) { markInvalidSymbol(symbol); return; }
 
   const isClosed = (kline as { x?: unknown }).x;
   if (isClosed !== true) return;
@@ -467,9 +671,16 @@ function handleAggTradeMessage(rawData: string): void {
   ) {
     return;
   }
+  if (!isValidSymbol(symbol)) { markInvalidSymbol(symbol); return; }
 
-  const notional = toNumber(price) * toNumber(qty);
+  const priceNum = toNumber(price);
+  const notional = priceNum * toNumber(qty);
   if (!Number.isFinite(notional) || notional <= 0) return;
+
+  if (priceNum > 0) {
+    latestPriceBySymbol.set(symbol, priceNum);
+    updatePendingPerformance(symbol, priceNum, Date.now());
+  }
 
   const second = Math.floor((typeof tradeTime === "number" ? tradeTime : Date.now()) / 1000);
   const stat = ensureTradeSecondStat(symbol, second);
@@ -495,6 +706,7 @@ function handleBookTickerMessage(rawData: string): void {
   const ask = data.a;
 
   if (typeof symbol !== "string" || typeof bid !== "string" || typeof ask !== "string") return;
+  if (!isValidSymbol(symbol)) { markInvalidSymbol(symbol); return; }
 
   const bidNum = toNumber(bid);
   const askNum = toNumber(ask);
@@ -528,6 +740,7 @@ function handleDepthMessage(rawData: string): void {
   const asks = data.a;
 
   if (!Array.isArray(bids) || !Array.isArray(asks) || typeof symbol !== "string") return;
+  if (!isValidSymbol(symbol)) { markInvalidSymbol(symbol); return; }
 
   const topBids = bids.slice(0, DEPTH_LEVELS_TO_SUM) as string[][];
   const topAsks = asks.slice(0, DEPTH_LEVELS_TO_SUM) as string[][];
@@ -701,6 +914,9 @@ async function maybeTriggerConfirmedAlert(features: MomentumFeatures): Promise<v
 
   const fallbackAlert: Alert = {
     symbol: features.symbol,
+    alert_type: "micro",
+    run_id: RUN_ID,
+    entry_time: new Date().toISOString(),
     volume_5m: fallbackVolume5m,
     avg_volume_1h: fallbackAvg1h,
     volume_ratio: fallbackVolumeRatio > 0
@@ -738,6 +954,8 @@ async function runMomentumTick(): Promise<void> {
       if (features.score >= MICRO_CANDIDATE_SCORE) {
         pushEarlyCandidate({
           symbol: features.symbol,
+          run_id: RUN_ID,
+          entry_time: new Date().toISOString(),
           momentum_score: features.score,
           tps_now: features.tpsNow,
           tps_baseline: features.tpsBaseline,
@@ -809,6 +1027,8 @@ function startDepthStreams(symbols: string[]): void {
 }
 
 async function startStreamingScanner(pairsLimit: number): Promise<void> {
+  await loadAlertHistory();
+  await loadPerformanceLog();
   const pairs = await getTopUsdtPairs(pairsLimit);
   watchedSymbols = pairs.map((p) => p.symbol);
   lastScannedPairs = watchedSymbols.length;
@@ -827,6 +1047,75 @@ async function startStreamingScanner(pairsLimit: number): Promise<void> {
 
   lastScanAt = new Date().toISOString();
   console.log(`Micro-sieve started for ${watchedSymbols.length} symbols.`);
+}
+
+function buildPerformancePayload() {
+  const summary = (["candle", "micro"] as const).map((type) => {
+    const entries = performanceLog.filter((e) => e.alert_type === type && e.forward_15m !== null);
+    const count = entries.length;
+    const avg = (key: keyof PerformanceEntry) =>
+      count > 0 ? entries.reduce((s, e) => s + (Number(e[key]) || 0), 0) / count : null;
+    const falseRate = count > 0 ? entries.filter((e) => e.is_false).length / count : null;
+    return {
+      alert_type: type,
+      count,
+      false_rate: falseRate,
+      hit_rate_15m: count > 0 ? entries.filter((e) => (e.forward_15m ?? 0) > 0).length / count : null,
+      avg_forward_1m:   avg("forward_1m"),
+      avg_forward_3m:   avg("forward_3m"),
+      avg_forward_5m:   avg("forward_5m"),
+      avg_forward_15m:  avg("forward_15m"),
+      avg_max_up_15m:   avg("max_up_15m"),
+      avg_max_down_15m: avg("max_down_15m"),
+    };
+  });
+  return {
+    run_id: RUN_ID,
+    run_started_at: RUN_STARTED_AT,
+    summary,
+    pending_count: pendingPerformanceBySymbol.size,
+    pending: [...pendingPerformanceBySymbol.values()].map((p) => ({
+      symbol: p.symbol,
+      alert_type: p.alert_type,
+      run_id: p.run_id,
+      entry_time: p.entry_time,
+      run_started_at: p.run_started_at,
+      entry_price: p.entry_price,
+      elapsed_s: Math.round((Date.now() - p.started_at) / 1000),
+      forward_1m: p.forward_1m,
+      forward_3m: p.forward_3m,
+      forward_5m: p.forward_5m,
+    })),
+    recent: performanceLog.slice(0, 100),
+  };
+}
+
+function buildRunsPayload(): RunSummary[] {
+  const runs = new Map<string, RunSummary>();
+
+  const upsert = (run_id: string, started_at: string | null, incAlerts: boolean, incPerf: boolean) => {
+    const existing = runs.get(run_id) ?? { run_id, run_started_at: started_at, alerts: 0, performance: 0 };
+    if (!existing.run_started_at && started_at) existing.run_started_at = started_at;
+    if (incAlerts) existing.alerts += 1;
+    if (incPerf) existing.performance += 1;
+    runs.set(run_id, existing);
+  };
+
+  for (const a of latestAlerts) {
+    if (a.run_id) upsert(a.run_id, a.entry_time ?? null, true, false);
+  }
+  for (const p of performanceLog) {
+    if (p.run_id) upsert(p.run_id, p.run_started_at ?? p.entry_time ?? null, false, true);
+  }
+
+  // Include current run even if empty
+  upsert(RUN_ID, RUN_STARTED_AT, false, false);
+
+  return [...runs.values()].sort((a, b) => {
+    const ta = a.run_started_at ? Date.parse(a.run_started_at) : 0;
+    const tb = b.run_started_at ? Date.parse(b.run_started_at) : 0;
+    return tb - ta;
+  });
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -872,6 +1161,9 @@ Deno.serve({ port: _port }, (req) => {
     const initialPayload = {
       scanned_pairs: lastScannedPairs,
       last_scan_at: lastScanAt,
+      run_id: RUN_ID,
+      run_started_at: RUN_STARTED_AT,
+      runs: buildRunsPayload(),
       alerts_count: latestAlerts.length,
       candidates_count: latestEarlyCandidates.length,
       alerts: latestAlerts,
@@ -913,11 +1205,27 @@ Deno.serve({ port: _port }, (req) => {
     return jsonResponse({
       scanned_pairs: lastScannedPairs,
       last_scan_at: lastScanAt,
+      run_id: RUN_ID,
+      run_started_at: RUN_STARTED_AT,
+      runs: buildRunsPayload(),
       alerts_count: latestAlerts.length,
       candidates_count: latestEarlyCandidates.length,
       alerts: latestAlerts,
       early_candidates: latestEarlyCandidates,
+      performance: buildPerformancePayload(),
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/runs") {
+    return jsonResponse({
+      run_id: RUN_ID,
+      run_started_at: RUN_STARTED_AT,
+      runs: buildRunsPayload(),
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/performance") {
+    return jsonResponse(buildPerformancePayload());
   }
 
   if (req.method === "GET" && url.pathname === "/") {
@@ -927,26 +1235,37 @@ Deno.serve({ port: _port }, (req) => {
   return jsonResponse({ error: "Not found" }, 404);
 });
 
-console.log(`Scanner API listening on http://localhost:${_port}`);
-void openDashboardInBrowser(`http://localhost:${_port}${DASHBOARD_PATH}`);
+async function appMain(): Promise<void> {
+  console.log(`Scanner API listening on http://localhost:${_port}`);
+  if (!isRunningAsService) {
+    void openDashboardInBrowser(`http://localhost:${_port}${DASHBOARD_PATH}`);
+  }
+  if (_dashboardOnly) {
+    console.log("Dashboard-only mode: live scanning disabled.");
+  } else {
+    await startStreamingScanner(_pairsLimit);
+  }
+}
 
-if (_dashboardOnly) {
-  console.log("Dashboard-only mode: live scanning disabled.");
+if (_runAsService) {
+  await runAsWindowsService(appMain);
 } else {
   try {
-    await startStreamingScanner(_pairsLimit);
+    await appMain();
   } catch (error) {
-    console.error("Streaming scanner failed to start:", error);
+    console.error("Scanner failed to start:", error);
   }
 }
 
 /*
-Run:
-  deno run --allow-net --allow-run=cmd.exe,powershell.exe --allow-read=dashboard.html scanner.ts
-  deno run --allow-net --allow-run=cmd.exe,powershell.exe --allow-read=dashboard.html scanner.ts --port 9000 --pairs-limit 50
-  deno run --allow-net --allow-run=cmd.exe,powershell.exe --allow-read=dashboard.html scanner.ts --dashboard-only
+Run (Windows):
+  deno run --allow-net --allow-run=cmd.exe,powershell.exe --allow-read --allow-write=alerts_history.json scanner.ts
+  deno run --allow-net --allow-run=cmd.exe,powershell.exe --allow-read --allow-write=alerts_history.json scanner.ts --port 9000 --pairs-limit 50
 
-Linux/macOS:
-  deno run --allow-net --allow-run=xdg-open --allow-read=dashboard.html scanner.ts
-  deno run --allow-net --allow-run=open     --allow-read=dashboard.html scanner.ts
+Run (Linux/macOS):
+  deno run --allow-net --allow-run=xdg-open --allow-read --allow-write=alerts_history.json scanner.ts
+  deno run --allow-net --allow-run=open     --allow-read --allow-write=alerts_history.json scanner.ts
+
+Service commands (requires admin/root + --allow-ffi on Windows):
+  scanner install / uninstall / start / stop
 */

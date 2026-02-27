@@ -2,10 +2,18 @@
 
 A real-time Binance spot momentum scanner with a live web dashboard. Streams trade flow, order-book ticks, and 5-minute klines for the top 200 USDT pairs simultaneously and surfaces two types of signal:
 
+[![Deno](https://img.shields.io/badge/deno-%5E1.40-lightgrey?logo=deno)](https://deno.land/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)]()
+
 - **Confirmed alerts** — candle-based: abnormal 5m volume (≥ 3× the 1h average) combined with a price move ≥ 1.5%.
 - **Early signals** — micro-momentum: trade-per-second z-score, cumulative volume delta (CVD) rate, buy ratio, and spread compression scored continuously every 5 seconds.
 
+![Confirmed alerts tab](screenshot_confirmed.png)
+
 ![Early signals tab](screenshot_early.png)
+
+![Performance tab](screenshot_performance.png)
 
 ---
 
@@ -21,9 +29,12 @@ A real-time Binance spot momentum scanner with a live web dashboard. Streams tra
 - Sound alerts (Web Audio API) and toast notifications for new confirmed alerts
 - Expandable detail rows and mobile card layout
 - 1-minute TradingView chart for early signals, 5-minute for confirmed
+- Run selector to filter dashboard data by run ID
+- Performance false-rate flagging (max up < 0.3%)
 - CLI flags for port, pairs limit, and dashboard-only mode
 - `/health` endpoint with per-stream uptime diagnostics
 - Compiles to a single self-contained binary (Deno)
+- Strict symbol validation against Binance spot whitelist
 
 ---
 
@@ -118,12 +129,25 @@ scanner-windows-x64.exe --port 9000 --pairs-limit 100
 
 ---
 
+## Docker (compiled binary)
+
+This setup runs the compiled Linux binary and persists logs in a named volume.
+
+```sh
+docker compose up -d --build
+```
+
+Ports can be overridden via `PORT` in `docker-compose.yml`.
+
+---
+
 ## API endpoints
 
 | Endpoint | Description |
 |---|---|
 | `GET /dashboard` | Live HTML dashboard |
 | `GET /alerts` | JSON snapshot (alerts + early candidates) |
+| `GET /runs` | Run metadata grouped by run ID |
 | `GET /health` | Uptime, per-stream connection counts and reconnect counts |
 | `GET /` | Redirects to `/dashboard` |
 

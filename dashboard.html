@@ -180,6 +180,13 @@
       transition: border-color .15s;
     }
     input[type="search"]:focus { border-color: var(--accent); }
+    .ctrl-select {
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); border-radius: var(--r-sm);
+      padding: 4px 8px; font-size: 12px; outline: none;
+      transition: border-color .15s; cursor: pointer;
+    }
+    .ctrl-select:focus { border-color: var(--accent); }
 
     /* ── Panels ───────────────────────────────────────────── */
     .panel { display: none; }
@@ -231,7 +238,17 @@
     .det-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
     .det-val { font-size: 13px; font-weight: 600; }
 
-    .show-more-bar { padding: 10px; border-top: 1px solid var(--border); text-align: center; }
+    /* ── Score breakdown bars ─────────────────────────────── */
+    .score-breakdown { margin-bottom: 10px; }
+    .sbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .sbar-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; width: 80px; flex-shrink: 0; }
+    .sbar-track { flex: 1; height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+    .sbar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+    .sbar-fill-g { background: var(--green); }
+    .sbar-val { font-size: 12px; font-weight: 700; color: var(--dim); min-width: 55px; text-align: right; flex-shrink: 0; }
+    .sbar-max { font-size: 10px; color: var(--muted); font-weight: 400; }
+
+    .show-more-bar { padding: 10px; text-align: center; }
     .btn-more {
       padding: 5px 14px;
       border: 1px solid var(--border); background: var(--surface2);
@@ -239,6 +256,34 @@
       cursor: pointer; font-size: 12px; transition: all .15s;
     }
     .btn-more:hover { border-color: var(--accent); color: var(--accent); }
+    .hidden { display: none !important; }
+    .btn-group-toggle {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 11px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); border-radius: var(--r-sm);
+      cursor: pointer; font-size: 12px; font-weight: 500;
+      transition: all .15s; white-space: nowrap;
+    }
+    .btn-group-toggle:hover { border-color: var(--border2); color: var(--text); }
+    .btn-group-toggle.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+    /* ── Grouped rows ─────────────────────────────────────── */
+    .group-count {
+      font-size: 11px; font-weight: 700;
+      color: var(--accent); background: var(--accent-bg);
+      border: 1px solid rgba(59,130,246,.35);
+      border-radius: 999px; padding: 1px 6px;
+      margin-left: 6px; vertical-align: middle;
+    }
+    .group-list { display: flex; flex-direction: column; gap: 5px; }
+    .group-item {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 5px 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); font-size: 12px;
+    }
+    .group-item-time { color: var(--muted); font-size: 11px; margin-left: auto; }
 
     /* ── Symbol cell ──────────────────────────────────────── */
     .sym-cell { display: flex; align-items: center; gap: 8px; }
@@ -313,14 +358,51 @@
     .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
     .cstat-lbl { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
     .cstat-val { font-size: 13px; font-weight: 600; }
-    .card-footer { margin-top: 10px; }
+    .card-footer { margin-top: 10px; display: flex; gap: 6px; }
     .btn-full {
-      width: 100%; padding: 7px;
+      flex: 1; width: 100%; padding: 7px;
       border: 1px solid var(--border); background: var(--surface2);
       color: var(--dim); border-radius: var(--r-sm);
       cursor: pointer; font-size: 13px; transition: all .15s;
     }
     .btn-full:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-full.pinned { color: var(--yellow); border-color: var(--yellow); background: var(--yellow-bg); }
+    .card-det {
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Performance tab ─────────────────────────────────── */
+    .perf-pending {
+      margin-bottom: 12px; padding: 8px 14px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); font-size: 12px; color: var(--dim);
+    }
+    .perf-run {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .perf-summary {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+    }
+    .perf-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px 16px;
+    }
+    .perf-card-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+      color: var(--muted); margin-bottom: 12px; font-weight: 600;
+    }
+    .perf-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .perf-stat-lbl { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .perf-stat-val { font-size: 14px; font-weight: 700; }
+    .fwd-pos { color: var(--green); }
+    .fwd-neg { color: var(--red); }
+    .fwd-neu { color: var(--dim); }
+    @media (max-width: 767px) {
+      .perf-summary { grid-template-columns: 1fr; }
+    }
 
     /* ── Watchlist empty ──────────────────────────────────── */
     .wl-empty { padding: 56px 20px; text-align: center; color: var(--muted); }
@@ -458,6 +540,16 @@
       <button class="tab-btn" data-tab="watchlist" type="button">
         Watchlist <span class="badge" id="b-watchlist">0</span>
       </button>
+      <button class="tab-btn" data-tab="performance" type="button">
+        Performance <span class="badge" id="b-perf">0</span>
+      </button>
+    </div>
+    <button class="btn-group-toggle hidden" id="groupBtn" type="button">⊞ Group</button>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">Run</span>
+      <select id="runSelect" class="ctrl-select" title="Select run">
+        <option value="all">All runs</option>
+      </select>
     </div>
     <div class="ctrl-spacer"></div>
     <div class="ctrl-group">
@@ -486,11 +578,11 @@
           <tbody id="cDesk"></tbody>
         </table>
       </div>
-      <div class="show-more-bar" id="showMoreBar" style="display:none;">
-        <button class="btn-more" id="showMoreBtn" type="button">Show more</button>
-      </div>
     </div>
     <div id="cMob" class="cards"></div>
+    <div class="show-more-bar" id="showMoreBar" style="display:none;">
+      <button class="btn-more" id="showMoreBtn" type="button">Show more</button>
+    </div>
   </section>
 
   <!-- Early panel -->
@@ -541,6 +633,41 @@
     </div>
   </section>
 
+  <!-- Performance panel -->
+  <section id="panel-performance" class="panel">
+    <div id="perfPending" class="perf-pending" style="display:none;"></div>
+    <div id="perfRun" class="perf-run" style="display:none;"></div>
+    <div id="perfSummary" class="perf-summary"></div>
+    <div class="tcard" id="perfCard" style="display:none;">
+      <div class="tcard-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Type</th>
+              <th>Entry</th>
+              <th>+1m</th>
+              <th>+3m</th>
+              <th>+5m</th>
+              <th>+15m</th>
+              <th>Max Up</th>
+              <th>Max Down</th>
+              <th>False?</th>
+              <th>Chart</th>
+            </tr>
+          </thead>
+          <tbody id="perfDesk"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="perfMob" class="cards"></div>
+    <div id="perfEmpty" class="empty" style="display:none;">
+      <div class="empty-ico">📊</div>
+      <div class="empty-title">No completed entries yet</div>
+      <div style="font-size:12px;margin-top:2px;">Performance data fills in 15 min after each alert fires</div>
+    </div>
+  </section>
+
 </main>
 
 <!-- Chart modal -->
@@ -562,14 +689,20 @@
 
 <script>
 /* ── Init state ───────────────────────────────────────────── */
+const initialData = __INITIAL_DATA__;
 const S = {
-  data: __INITIAL_DATA__,
+  data: initialData,
+  currentRunId: initialData?.run_id || null,
+  runStartedAt: initialData?.run_started_at || null,
+  runs: initialData?.runs || [],
   tab: 'confirmed',
   minScore: 40,
   search: '',
   showMore: false,
   sound: false,
   paused: false,
+  runFilter: 'all',
+  groupC: false,
   prevAlertKeys: new Set(),
   sortC: { key: 'score',          dir: -1 },
   sortE: { key: 'momentum_score', dir: -1 },
@@ -596,6 +729,11 @@ function timeStr(iso) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function dateTimeStr(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString();
+}
+
 function relTime(iso) {
   if (!iso) return '—';
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -606,12 +744,14 @@ function relTime(iso) {
 }
 
 function scoreStyle(score) {
-  const s = Math.min(100, Math.max(0, Number(score)));
+  const s = Number(score);
   let color;
-  if (s >= 75) color = '#22c55e';
-  else if (s >= 55) color = '#eab308';
-  else if (s >= 35) color = '#3b82f6';
-  else color = '#6b7280';
+  if      (s >= 150) color = '#86efac'; // exceptional — early signals only
+  else if (s >= 100) color = '#4ade80'; // very strong
+  else if (s >= 75)  color = '#22c55e'; // strong
+  else if (s >= 55)  color = '#eab308'; // moderate
+  else if (s >= 35)  color = '#3b82f6'; // low
+  else               color = '#6b7280'; // minimal
   return `background:${color}22;color:${color};border:1px solid ${color}55`;
 }
 
@@ -648,6 +788,8 @@ function savePrefs() {
     sortC:    S.sortC,
     sortE:    S.sortE,
     sound:    S.sound,
+    runFilter: S.runFilter,
+    groupC:   S.groupC,
   }));
 }
 
@@ -661,6 +803,8 @@ function loadPrefs() {
     if (p.sortC?.key && typeof p.sortC.dir === 'number') S.sortC = p.sortC;
     if (p.sortE?.key && typeof p.sortE.dir === 'number') S.sortE = p.sortE;
     if (typeof p.sound    === 'boolean') S.sound    = p.sound;
+    if (typeof p.runFilter === 'string') S.runFilter = p.runFilter;
+    if (typeof p.groupC   === 'boolean') S.groupC   = p.groupC;
   } catch { /* ignore malformed prefs */ }
 }
 
@@ -672,6 +816,11 @@ function applyPrefsToDOM() {
   const sb = document.getElementById('soundBtn');
   sb.textContent = S.sound ? '🔔' : '🔕';
   sb.classList.toggle('on', S.sound);
+  const gb = document.getElementById('groupBtn');
+  gb.textContent = S.groupC ? '⊟ Ungroup' : '⊞ Group';
+  gb.classList.toggle('on', S.groupC);
+  const rs = document.getElementById('runSelect');
+  if (rs) rs.value = S.runFilter;
 }
 
 function syncSortHeaders() {
@@ -748,11 +897,19 @@ function closeChart() {
 function filtered() {
   const q = S.search.toUpperCase();
   const ms = S.minScore;
+  const runFilter = S.runFilter;
+
+  function inRun(row) {
+    if (runFilter === 'all') return true;
+    if (runFilter === 'legacy') return !row?.run_id;
+    return row?.run_id === runFilter;
+  }
 
   function filt(arr, scoreKey) {
     return arr
       .filter(x => Number(x?.[scoreKey] ?? 0) >= ms)
-      .filter(x => String(x?.symbol || '').toUpperCase().includes(q));
+      .filter(x => String(x?.symbol || '').toUpperCase().includes(q))
+      .filter(inRun);
   }
 
   function sorted(arr, st) {
@@ -792,6 +949,28 @@ function wlBtn(sym) {
   return `<button class="btn-wl js-wl ${p ? 'pinned' : ''}" data-sym="${sym}" title="${p ? 'Unpin' : 'Pin'}">${p ? '★' : '☆'}</button>`;
 }
 
+function confirmedBreakdown(ratio, chg) {
+  const volScore   = Math.min(Math.max(Math.log2(Math.max(1, ratio)) * 20, 0), 65);
+  const priceScore = Math.min(Math.max(chg * 6, 0), 35);
+  return { volScore, priceScore };
+}
+
+function scoreBreakdownHtml(ratio, chg) {
+  const { volScore, priceScore } = confirmedBreakdown(ratio, chg);
+  return `<div class="score-breakdown">
+    <div class="sbar-row">
+      <span class="sbar-lbl">Vol Score</span>
+      <div class="sbar-track"><div class="sbar-fill" style="width:${(volScore / 65 * 100).toFixed(1)}%"></div></div>
+      <span class="sbar-val">${volScore.toFixed(1)} <span class="sbar-max">/ 65</span></span>
+    </div>
+    <div class="sbar-row">
+      <span class="sbar-lbl">Price Score</span>
+      <div class="sbar-track"><div class="sbar-fill sbar-fill-g" style="width:${(priceScore / 35 * 100).toFixed(1)}%"></div></div>
+      <span class="sbar-val">${priceScore.toFixed(1)} <span class="sbar-max">/ 35</span></span>
+    </div>
+  </div>`;
+}
+
 /* ── Render confirmed ─────────────────────────────────────── */
 function renderConfirmed(alerts) {
   const desk = document.getElementById('cDesk');
@@ -811,15 +990,101 @@ function renderConfirmed(alerts) {
     return;
   }
 
+  // ── Grouped mode ────────────────────────────────────────────
+  if (S.groupC) {
+    moreBar.style.display = 'none';
+    const groups = new Map();
+    for (const a of alerts) {
+      if (!groups.has(a.symbol)) groups.set(a.symbol, []);
+      groups.get(a.symbol).push(a);
+    }
+    groups.forEach((rows, sym) => {
+      const latest = rows[0];
+      const count  = rows.length;
+      const key    = sym + '_g';
+      const exp    = S.expC.has(key);
+      const chg    = Number(latest?.price_change_5m);
+      const ratio  = Number(latest?.volume_ratio);
+      const score  = Number(latest?.score);
+      const isNew  = !S.prevAlertKeys.has(sym);
+
+      const tr = document.createElement('tr');
+      if (isNew) tr.classList.add('new-row');
+      tr.innerHTML = `
+        <td>${symCell(sym)}</td>
+        <td>${scoreBadge(score)}<span class="group-count">${count}×</span></td>
+        <td><span class="${chg >= 0 ? 'pos' : 'neg'}">${pct(chg)}</span></td>
+        <td><strong>${Number.isFinite(ratio) ? ratio.toFixed(2) : '0.00'}×</strong></td>
+        <td style="color:var(--muted);font-size:12px;">${timeStr(latest?.timestamp)}</td>
+        <td><div class="acts">
+          ${wlBtn(sym)}
+          <button class="btn-sm js-chart" data-sym="${sym}">Chart</button>
+          <button class="btn-sm js-exp-c" data-key="${key}" style="min-width:68px;">${exp ? 'Hide' : count + ' alerts'}</button>
+        </div></td>`;
+      desk.appendChild(tr);
+
+      if (exp) {
+        const dr = document.createElement('tr');
+        dr.className = 'det-row';
+        dr.innerHTML = `<td colspan="6"><div class="group-list">${rows.map(a => {
+          const ac = Number(a?.price_change_5m);
+          const ar = Number(a?.volume_ratio);
+          return `<div class="group-item">
+            ${scoreBadge(Number(a?.score))}
+            <span class="${ac >= 0 ? 'pos' : 'neg'}">${pct(ac)}</span>
+            <span>${Number.isFinite(ar) ? ar.toFixed(2) : '0.00'}×</span>
+            <span class="group-item-time">${timeStr(a?.timestamp)}</span>
+          </div>`;
+        }).join('')}</div></td>`;
+        desk.appendChild(dr);
+      }
+
+      const card = document.createElement('div');
+      card.className = 'card' + (isNew ? ' new-row' : '');
+      card.innerHTML = `
+        <div class="card-head">
+          <div>${symCell(sym)}</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${scoreBadge(score)}<span class="group-count">${count}×</span>
+          </div>
+        </div>
+        <div class="card-grid">
+          <div><div class="cstat-lbl">5m Change</div><div class="cstat-val ${chg >= 0 ? 'pos' : 'neg'}">${pct(chg)}</div></div>
+          <div><div class="cstat-lbl">Vol Ratio</div><div class="cstat-val">${Number.isFinite(ratio) ? ratio.toFixed(2) : '0.00'}×</div></div>
+          <div><div class="cstat-lbl">Alerts</div><div class="cstat-val">${count}</div></div>
+          <div><div class="cstat-lbl">Latest</div><div class="cstat-val" style="font-size:12px;">${timeStr(latest?.timestamp)}</div></div>
+        </div>
+        <div class="card-footer">
+          <button class="btn-full js-wl ${S.wl.has(sym) ? 'pinned' : ''}" data-sym="${sym}">${S.wl.has(sym) ? '★' : '☆'}</button>
+          <button class="btn-full js-exp-c" data-key="${key}">${exp ? 'Hide' : count + ' alerts'}</button>
+          <button class="btn-full js-chart" data-sym="${sym}">View Chart</button>
+        </div>
+        ${exp ? '<div class="card-det"><div class="group-list">' + rows.map(a => {
+          const ac = Number(a?.price_change_5m);
+          const ar = Number(a?.volume_ratio);
+          return '<div class="group-item">' +
+            scoreBadge(Number(a?.score)) +
+            '<span class="' + (ac >= 0 ? 'pos' : 'neg') + '">' + pct(ac) + '</span>' +
+            '<span>' + (Number.isFinite(ar) ? ar.toFixed(2) : '0.00') + '×</span>' +
+            '<span class="group-item-time">' + timeStr(a?.timestamp) + '</span>' +
+            '</div>';
+        }).join('') + '</div></div>' : ''}`;
+      mob.appendChild(card);
+    });
+    return;
+  }
+
+  // ── Flat mode (default) ──────────────────────────────────────
   const list = S.showMore ? alerts : alerts.slice(0, 10);
   list.forEach(a => {
-    const sym    = String(a?.symbol || '');
-    const score  = Number(a?.score);
-    const chg    = Number(a?.price_change_5m);
-    const ratio  = Number(a?.volume_ratio);
-    const vol    = Number(a?.volume_5m);
-    const avgVol = Number(a?.avg_volume_1h);
-    const ts     = a?.timestamp;
+    const sym       = String(a?.symbol || '');
+    const score     = Number(a?.score);
+    const chg       = Number(a?.price_change_5m);
+    const ratio     = Number(a?.volume_ratio);
+    const vol       = Number(a?.volume_5m);
+    const avgVol    = Number(a?.avg_volume_1h);
+    const ts        = a?.timestamp;
+    const alertType = a?.alert_type === 'candle' ? 'candle' : 'micro';
     const key    = sym + '_c';
     const exp    = S.expC.has(key);
     const isNew  = !S.prevAlertKeys.has(sym);
@@ -843,12 +1108,15 @@ function renderConfirmed(alerts) {
     if (exp) {
       const dr = document.createElement('tr');
       dr.className = 'det-row';
-      dr.innerHTML = `<td colspan="6"><div class="det-grid">
-        <div class="det-item"><div class="det-lbl">5m Volume</div><div class="det-val">$${n(vol)}</div></div>
-        <div class="det-item"><div class="det-lbl">Avg Vol (1h)</div><div class="det-val">$${n(avgVol)}</div></div>
-        <div class="det-item"><div class="det-lbl">Vol Ratio</div><div class="det-val">${Number.isFinite(ratio) ? ratio.toFixed(2) : '0.00'}×</div></div>
-        <div class="det-item"><div class="det-lbl">Alert Time</div><div class="det-val">${timeStr(ts)}</div></div>
-      </div></td>`;
+      dr.innerHTML = `<td colspan="6">
+        ${alertType === 'candle' ? scoreBreakdownHtml(ratio, chg) : ''}
+        <div class="det-grid">
+          <div class="det-item"><div class="det-lbl">5m Volume</div><div class="det-val">$${n(vol)}</div></div>
+          <div class="det-item"><div class="det-lbl">Avg Vol (1h)</div><div class="det-val">$${n(avgVol)}</div></div>
+          ${alertType === 'micro' ? `<div class="det-item"><div class="det-lbl">5m Change</div><div class="det-val ${chg >= 0 ? 'pos' : 'neg'}">${pct(chg)}</div></div>` : ''}
+          ${alertType === 'micro' ? `<div class="det-item"><div class="det-lbl">Trigger</div><div class="det-val" style="color:var(--accent);font-size:11px;">Micro momentum</div></div>` : ''}
+        </div>
+      </td>`;
       desk.appendChild(dr);
     }
 
@@ -858,7 +1126,7 @@ function renderConfirmed(alerts) {
     card.innerHTML = `
       <div class="card-head">
         <div>${symCell(sym)}</div>
-        <div style="display:flex;gap:6px;align-items:center;">${scoreBadge(score)}${wlBtn(sym)}</div>
+        <div style="display:flex;gap:6px;align-items:center;">${scoreBadge(score)}</div>
       </div>
       <div class="card-grid">
         <div><div class="cstat-lbl">5m Change</div><div class="cstat-val ${chg >= 0 ? 'pos' : 'neg'}">${pct(chg)}</div></div>
@@ -866,7 +1134,20 @@ function renderConfirmed(alerts) {
         <div><div class="cstat-lbl">5m Volume</div><div class="cstat-val">$${n(vol)}</div></div>
         <div><div class="cstat-lbl">Time</div><div class="cstat-val" style="font-size:12px;">${timeStr(ts)}</div></div>
       </div>
-      <div class="card-footer"><button class="btn-full js-chart" data-sym="${sym}">View Chart</button></div>`;
+      <div class="card-footer">
+        <button class="btn-full js-wl ${S.wl.has(sym) ? 'pinned' : ''}" data-sym="${sym}">${S.wl.has(sym) ? '★' : '☆'}</button>
+        <button class="btn-full js-exp-c" data-key="${key}">${exp ? 'Hide' : 'Details'}</button>
+        <button class="btn-full js-chart" data-sym="${sym}">View Chart</button>
+      </div>
+      ${exp ? `<div class="card-det">
+        ${alertType === 'candle' ? scoreBreakdownHtml(ratio, chg) : ''}
+        <div class="det-grid">
+          <div class="det-item"><div class="det-lbl">5m Volume</div><div class="det-val">$${n(vol)}</div></div>
+          <div class="det-item"><div class="det-lbl">Avg Vol (1h)</div><div class="det-val">$${n(avgVol)}</div></div>
+          ${alertType === 'micro' ? `<div class="det-item"><div class="det-lbl">5m Change</div><div class="det-val ${chg >= 0 ? 'pos' : 'neg'}">${pct(chg)}</div></div>` : ''}
+          ${alertType === 'micro' ? `<div class="det-item"><div class="det-lbl">Trigger</div><div class="det-val" style="color:var(--accent);font-size:11px;">Micro momentum</div></div>` : ''}
+        </div>
+      </div>` : ''}`;
     mob.appendChild(card);
   });
 }
@@ -936,7 +1217,7 @@ function renderEarly(candidates) {
     card.innerHTML = `
       <div class="card-head">
         <div>${symCell(sym)}</div>
-        <div style="display:flex;gap:6px;align-items:center;">${scoreBadge(mom)}${wlBtn(sym)}</div>
+        <div style="display:flex;gap:6px;align-items:center;">${scoreBadge(mom)}</div>
       </div>
       <div style="margin:8px 0;"><span class="pill ${p.cls}">${p.label}</span></div>
       <div class="card-grid">
@@ -945,7 +1226,19 @@ function renderEarly(candidates) {
         <div><div class="cstat-lbl">CVD / s</div><div class="cstat-val">$${n(cvdR)}</div></div>
         <div><div class="cstat-lbl">Spread</div><div class="cstat-val">${Number.isFinite(spread) ? spread.toFixed(2) : '0'} bps</div></div>
       </div>
-      <div class="card-footer"><button class="btn-full js-chart" data-sym="${sym}" data-interval="1">View Chart</button></div>`;
+      <div class="card-footer">
+        <button class="btn-full js-wl ${S.wl.has(sym) ? 'pinned' : ''}" data-sym="${sym}">${S.wl.has(sym) ? '★' : '☆'}</button>
+        <button class="btn-full js-exp-e" data-key="${key}">${exp ? 'Hide' : 'Details'}</button>
+        <button class="btn-full js-chart" data-sym="${sym}" data-interval="1">View Chart</button>
+      </div>
+      ${exp ? `<div class="card-det"><div class="det-grid">
+        <div class="det-item"><div class="det-lbl">Buy Ratio</div><div class="det-val">${pct(buyR * 100, 1)}</div></div>
+        <div class="det-item"><div class="det-lbl">CVD / s</div><div class="det-val">$${n(cvdR)}</div></div>
+        <div class="det-item"><div class="det-lbl">TPS (now)</div><div class="det-val">${Number.isFinite(tps) ? tps.toFixed(2) : '0'}</div></div>
+        <div class="det-item"><div class="det-lbl">Spread</div><div class="det-val">${Number.isFinite(spread) ? spread.toFixed(2) : '0'} bps</div></div>
+        <div class="det-item"><div class="det-lbl">10s Notional</div><div class="det-val">$${n(notional)}</div></div>
+        <div class="det-item"><div class="det-lbl">Spread Compression</div><div class="det-val">${pct(spreadCo * 100, 1)}</div></div>
+      </div></div>` : ''}`;
     mob.appendChild(card);
   });
 }
@@ -964,7 +1257,13 @@ function renderWatchlist() {
   }
   card.style.display = ''; empty.style.display = 'none';
 
-  const bySymbol = new Map((S.data?.alerts ?? []).map(a => [a.symbol, a]));
+  const allAlerts = S.data?.alerts ?? [];
+  const alerts = S.runFilter === 'all'
+    ? allAlerts
+    : S.runFilter === 'legacy'
+      ? allAlerts.filter(a => !a.run_id)
+      : allAlerts.filter(a => a.run_id === S.runFilter);
+  const bySymbol = new Map(alerts.map(a => [a.symbol, a]));
 
   [...S.wl].forEach(sym => {
     const a     = bySymbol.get(sym);
@@ -997,11 +1296,19 @@ function renderWatchlist() {
 }
 
 /* ── Render meta ──────────────────────────────────────────── */
-function renderMeta() {
+function renderMeta(alertsCount, earlyCount) {
   const d = S.data || {};
-  document.getElementById('sPairs').textContent  = n(d.scanned_pairs)    || '—';
-  document.getElementById('sAlerts').textContent = n(d.alerts_count)     || '0';
-  document.getElementById('sEarly').textContent  = n(d.candidates_count) || '0';
+  if (d.run_id) S.currentRunId = d.run_id;
+  if (d.run_started_at) S.runStartedAt = d.run_started_at;
+  if (Array.isArray(d.runs)) S.runs = d.runs;
+  document.getElementById('sPairs').textContent  = n(d.scanned_pairs) || '—';
+  if (S.runFilter !== 'all') {
+    document.getElementById('sAlerts').textContent = n(alertsCount ?? 0) || '0';
+    document.getElementById('sEarly').textContent  = n(earlyCount ?? 0)  || '0';
+  } else {
+    document.getElementById('sAlerts').textContent = n(d.alerts_count)     || '0';
+    document.getElementById('sEarly').textContent  = n(d.candidates_count) || '0';
+  }
   document.getElementById('sTime').textContent   = relTime(d.last_scan_at);
 }
 
@@ -1011,6 +1318,35 @@ function renderBadges(alerts, early) {
   document.getElementById('b-watchlist').textContent = S.wl.size;
 }
 
+function renderRunsDropdown() {
+  const select = document.getElementById('runSelect');
+  if (!select) return;
+
+  const runs = Array.isArray(S.runs) ? S.runs : [];
+  const options = [{ value: 'all', label: 'All runs' }];
+
+  const hasLegacy = (S.data?.alerts ?? []).some(a => !a.run_id) || (S.data?.performance?.recent ?? []).some(r => !r.run_id);
+  if (hasLegacy) options.push({ value: 'legacy', label: 'Legacy (no run id)' });
+
+  runs.forEach(r => {
+    const short = r.run_id.slice(0, 8);
+    const started = r.run_started_at ? new Date(r.run_started_at).toLocaleString() : 'unknown';
+    const label = `${short} · ${started} · A:${r.alerts} P:${r.performance}`;
+    options.push({ value: r.run_id, label });
+  });
+
+  const current = S.runFilter;
+  if (select.options.length !== options.length || ![...select.options].every((o, i) => o.value === options[i].value && o.textContent === options[i].label)) {
+    select.innerHTML = options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  }
+  if ([...select.options].some(o => o.value === current)) {
+    select.value = current;
+  } else {
+    S.runFilter = 'all';
+    select.value = 'all';
+  }
+}
+
 function renderTabs() {
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.classList.toggle('active', b.getAttribute('data-tab') === S.tab)
@@ -1018,6 +1354,8 @@ function renderTabs() {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('panel-' + S.tab);
   if (panel) panel.classList.add('active');
+  // Group button only makes sense on the confirmed tab
+  document.getElementById('groupBtn').classList.toggle('hidden', S.tab !== 'confirmed');
 }
 
 /* ── New alert detection ──────────────────────────────────── */
@@ -1031,15 +1369,185 @@ function checkNew(alerts) {
 }
 
 /* ── Render all ───────────────────────────────────────────── */
+/* ── Render performance ───────────────────────────────────── */
+function fwdClass(v) {
+  if (v === null || v === undefined) return 'fwd-neu';
+  return v > 0 ? 'fwd-pos' : v < 0 ? 'fwd-neg' : 'fwd-neu';
+}
+function fwdVal(v) {
+  if (v === null || v === undefined) return '—';
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
+function renderPerformance() {
+  const perf = S.data?.performance;
+  const pendingEl  = document.getElementById('perfPending');
+  const runEl      = document.getElementById('perfRun');
+  const summaryEl  = document.getElementById('perfSummary');
+  const cardEl     = document.getElementById('perfCard');
+  const deskEl     = document.getElementById('perfDesk');
+  const mobEl      = document.getElementById('perfMob');
+  const emptyEl    = document.getElementById('perfEmpty');
+
+  if (!perf) { emptyEl.style.display = ''; cardEl.style.display = 'none'; summaryEl.innerHTML = ''; return; }
+
+  const runFilter = S.runFilter;
+  const runOnly = runFilter !== 'all';
+  if (S.currentRunId) {
+    const short = S.currentRunId.slice(0, 8);
+    const started = S.runStartedAt ? new Date(S.runStartedAt).toLocaleString() : '—';
+    runEl.textContent = `Run ${short} · started ${started}` + (runOnly ? ' · filtered' : '');
+    runEl.style.display = '';
+  } else {
+    runEl.style.display = 'none';
+  }
+
+  // Pending tracker banner
+  const pendingAll = perf.pending ?? [];
+  const pending = runFilter === 'all'
+    ? pendingAll
+    : runFilter === 'legacy'
+      ? pendingAll.filter(p => !p.run_id)
+      : pendingAll.filter(p => p.run_id === runFilter);
+  const pc = pending.length;
+  if (pc > 0) {
+    const syms = pending.map(p => {
+      const parts = [];
+      if (p.forward_1m  !== null) parts.push(`+1m:${fwdVal(p.forward_1m)}`);
+      if (p.forward_3m  !== null) parts.push(`+3m:${fwdVal(p.forward_3m)}`);
+      if (p.forward_5m  !== null) parts.push(`+5m:${fwdVal(p.forward_5m)}`);
+      const elapsed = Math.floor((p.elapsed_s ?? 0) / 60);
+      return `<strong>${p.symbol}</strong> (${p.alert_type}, ${elapsed}m elapsed${parts.length ? ' — ' + parts.join(' ') : ''})`;
+    }).join(' &nbsp;·&nbsp; ');
+    pendingEl.innerHTML = `⏱ Tracking ${pc} alert${pc > 1 ? 's' : ''}: ${syms}`;
+    pendingEl.style.display = '';
+  } else {
+    pendingEl.style.display = 'none';
+  }
+
+  // Summary cards
+  function summarize(entries) {
+    const byType = { candle: [], micro: [] };
+    entries.forEach(e => {
+      if (e?.alert_type === 'candle') byType.candle.push(e);
+      if (e?.alert_type === 'micro')  byType.micro.push(e);
+    });
+    return ['candle', 'micro'].map(type => {
+      const list = byType[type];
+      const count = list.length;
+      const avg = key => count ? list.reduce((s, e) => s + (Number(e?.[key]) || 0), 0) / count : null;
+      const falseRate = count ? list.filter(e => e.is_false).length / count : null;
+      return {
+        alert_type: type,
+        count,
+        false_rate: falseRate,
+        hit_rate_15m: count ? list.filter(e => (e.forward_15m ?? 0) > 0).length / count : null,
+        avg_forward_1m:  avg('forward_1m'),
+        avg_forward_3m:  avg('forward_3m'),
+        avg_forward_5m:  avg('forward_5m'),
+        avg_forward_15m: avg('forward_15m'),
+        avg_max_up_15m:  avg('max_up_15m'),
+        avg_max_down_15m: avg('max_down_15m'),
+      };
+    });
+  }
+
+  const recentAll = perf.recent ?? [];
+  const recentFiltered = runFilter === 'all'
+    ? recentAll
+    : runFilter === 'legacy'
+      ? recentAll.filter(r => !r.run_id)
+      : recentAll.filter(r => r.run_id === runFilter);
+  const summarySource = runOnly ? summarize(recentFiltered) : (perf.summary ?? []);
+
+  summaryEl.innerHTML = summarySource.map(s => {
+    const hitPct  = s.hit_rate_15m !== null ? (s.hit_rate_15m * 100).toFixed(0) + '%' : '—';
+    const fwd15   = s.avg_forward_15m !== null ? fwdVal(s.avg_forward_15m) : '—';
+    const fwd5    = s.avg_forward_5m  !== null ? fwdVal(s.avg_forward_5m)  : '—';
+    const maxUp   = s.avg_max_up_15m  !== null ? '+' + s.avg_max_up_15m.toFixed(2) + '%' : '—';
+    const maxDown = s.avg_max_down_15m !== null ? s.avg_max_down_15m.toFixed(2) + '%' : '—';
+    const falseRate = s.false_rate !== null && s.false_rate !== undefined ? (s.false_rate * 100).toFixed(0) + '%' : '—';
+    const title   = s.alert_type === 'candle' ? '🕯 Candle Alerts' : '⚡ Micro Alerts';
+    return `<div class="perf-card">
+      <div class="perf-card-title">${title} &nbsp;<span style="color:var(--muted);font-weight:400;">${s.count} completed</span></div>
+      <div class="perf-stats">
+        <div><div class="perf-stat-lbl">Hit Rate (+15m &gt; 0)</div><div class="perf-stat-val ${s.hit_rate_15m >= 0.5 ? 'fwd-pos' : 'fwd-neg'}">${hitPct}</div></div>
+        <div><div class="perf-stat-lbl">False Rate (Max Up &lt; 0.3%)</div><div class="perf-stat-val ${s.false_rate !== null && s.false_rate < 0.5 ? 'fwd-pos' : 'fwd-neg'}">${falseRate}</div></div>
+        <div><div class="perf-stat-lbl">Avg +15m</div><div class="perf-stat-val ${fwdClass(s.avg_forward_15m)}">${fwd15}</div></div>
+        <div><div class="perf-stat-lbl">Avg +5m</div><div class="perf-stat-val ${fwdClass(s.avg_forward_5m)}">${fwd5}</div></div>
+        <div><div class="perf-stat-lbl">Avg Max Up</div><div class="perf-stat-val fwd-pos">${maxUp}</div></div>
+        <div><div class="perf-stat-lbl">Avg Max Down</div><div class="perf-stat-val fwd-neg">${maxDown}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Recent entries table
+  const recent = recentFiltered;
+  document.getElementById('b-perf').textContent = runOnly ? String(recent.length) : performanceLog_count(perf);
+  if (!recent.length) {
+    emptyEl.style.display = ''; cardEl.style.display = 'none'; mobEl.innerHTML = ''; return;
+  }
+  emptyEl.style.display = 'none'; cardEl.style.display = '';
+  deskEl.innerHTML = ''; mobEl.innerHTML = '';
+
+  recent.forEach(e => {
+    const interval = e.alert_type === 'candle' ? '5' : '1';
+    const entry = e.entry_time || e.alert_timestamp;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${symCell(e.symbol)}</td>
+      <td><span style="font-size:11px;color:${e.alert_type === 'candle' ? 'var(--green)' : 'var(--accent)'}">${e.alert_type}</span></td>
+      <td style="color:var(--muted);font-size:12px;">${dateTimeStr(entry)}</td>
+      <td class="${fwdClass(e.forward_1m)}">${fwdVal(e.forward_1m)}</td>
+      <td class="${fwdClass(e.forward_3m)}">${fwdVal(e.forward_3m)}</td>
+      <td class="${fwdClass(e.forward_5m)}">${fwdVal(e.forward_5m)}</td>
+      <td class="${fwdClass(e.forward_15m)}">${fwdVal(e.forward_15m)}</td>
+      <td class="fwd-pos">${e.max_up_15m !== null ? '+' + e.max_up_15m.toFixed(2) + '%' : '—'}</td>
+      <td class="fwd-neg">${e.max_down_15m !== null ? e.max_down_15m.toFixed(2) + '%' : '—'}</td>
+      <td>${e.is_false ? '❌' : '—'}</td>
+      <td><button class="btn-sm js-chart" data-sym="${e.symbol}" data-interval="${interval}">Chart</button></td>`;
+    deskEl.appendChild(tr);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head">
+        <div>${symCell(e.symbol)}</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:11px;color:${e.alert_type === 'candle' ? 'var(--green)' : 'var(--accent)'}">${e.alert_type}</span>
+          <button class="btn-sm js-chart" data-sym="${e.symbol}" data-interval="${interval}">Chart</button>
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Entry: ${dateTimeStr(entry)}</div>
+      <div class="card-grid">
+        <div><div class="cstat-lbl">+1m</div><div class="cstat-val ${fwdClass(e.forward_1m)}">${fwdVal(e.forward_1m)}</div></div>
+        <div><div class="cstat-lbl">+3m</div><div class="cstat-val ${fwdClass(e.forward_3m)}">${fwdVal(e.forward_3m)}</div></div>
+        <div><div class="cstat-lbl">+5m</div><div class="cstat-val ${fwdClass(e.forward_5m)}">${fwdVal(e.forward_5m)}</div></div>
+        <div><div class="cstat-lbl">+15m</div><div class="cstat-val ${fwdClass(e.forward_15m)}">${fwdVal(e.forward_15m)}</div></div>
+        <div><div class="cstat-lbl">Max Up</div><div class="cstat-val fwd-pos">${e.max_up_15m !== null ? '+' + e.max_up_15m.toFixed(2) + '%' : '—'}</div></div>
+        <div><div class="cstat-lbl">Max Down</div><div class="cstat-val fwd-neg">${e.max_down_15m !== null ? e.max_down_15m.toFixed(2) + '%' : '—'}</div></div>
+        <div><div class="cstat-lbl">False?</div><div class="cstat-val">${e.is_false ? '❌' : '—'}</div></div>
+      </div>`;
+    mobEl.appendChild(card);
+  });
+}
+
+function performanceLog_count(perf) {
+  if (!perf) return 0;
+  return (perf.summary ?? []).reduce((s, x) => s + (x.count || 0), 0);
+}
+
 function renderAll() {
   const { alerts, early } = filtered();
-  renderMeta();
+  renderMeta(alerts.length, early.length);
+  renderRunsDropdown();
   renderBadges(alerts, early);
   renderTabs();
   syncSortHeaders();
   renderConfirmed(alerts);
   renderEarly(early);
   renderWatchlist();
+  renderPerformance();
 }
 
 /* ── Data load ────────────────────────────────────────────── */
@@ -1077,12 +1585,37 @@ document.getElementById('minScore').addEventListener('input', e => {
 });
 
 document.getElementById('symSearch').addEventListener('input', e => {
+  const prev = S.search;
   S.search = String(e.target.value || '');
+  // Auto-switch confirmed sort to newest-first when starting a search from default.
+  // Restore default when search is cleared.
+  const isDefault = S.sortC.key === 'score' && S.sortC.dir === -1;
+  const wasDefault = S.sortC.key === 'timestamp' && S.sortC.dir === -1 && !prev;
+  if (S.search && !prev && isDefault) {
+    S.sortC = { key: 'timestamp', dir: -1 };
+    syncSortHeaders();
+  } else if (!S.search && prev && S.sortC.key === 'timestamp') {
+    S.sortC = { key: 'score', dir: -1 };
+    syncSortHeaders();
+  }
   savePrefs(); renderAll();
 });
 
 document.getElementById('showMoreBtn').addEventListener('click', () => {
   S.showMore = !S.showMore; renderAll();
+});
+
+document.getElementById('groupBtn').addEventListener('click', () => {
+  S.groupC = !S.groupC;
+  const gb = document.getElementById('groupBtn');
+  gb.textContent = S.groupC ? '⊟ Ungroup' : '⊞ Group';
+  gb.classList.toggle('on', S.groupC);
+  savePrefs(); renderAll();
+});
+
+document.getElementById('runSelect').addEventListener('change', e => {
+  S.runFilter = String(e.target.value || 'all');
+  savePrefs(); renderAll();
 });
 
 document.getElementById('soundBtn').addEventListener('click', () => {
@@ -1160,10 +1693,15 @@ document.addEventListener('keydown', e => {
 /* ── Boot ─────────────────────────────────────────────────── */
 loadPrefs();
 applyPrefsToDOM();
-if (S.data) {
-  S.prevAlertKeys = new Set((S.data.alerts ?? []).map(a => a.symbol));
-  renderAll();
-}
+  if (S.data) {
+    const initAlerts = S.runFilter === 'all'
+      ? (S.data.alerts ?? [])
+      : S.runFilter === 'legacy'
+        ? (S.data.alerts ?? []).filter(a => !a.run_id)
+        : (S.data.alerts ?? []).filter(a => a.run_id === S.runFilter);
+    S.prevAlertKeys = new Set(initAlerts.map(a => a.symbol));
+    renderAll();
+  }
 void load();
 setInterval(load, 7000);
 setInterval(() => {
